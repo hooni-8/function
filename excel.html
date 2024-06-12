@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Upload Template</title>
+    <style>
+        /* 전체적인 스타일 설정 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #f0f0f0, #d9e4f5);
+        }
+        #content {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        input[type="file"]:hover {
+            background-color: #f9f9f9;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+    <!-- jQuery CDN 추가 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.14.3/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div id="content">
+        <h1>엑셀 업로드</h1>
+        <input type="file" class="addFile" id="fileLoad">
+        <button id="btnExcelUpload">저장</button>
+    </div>
+    
+    <div id="tableContainer">
+        <table id="excelTable">
+            <thead>
+                <tr>
+                    <th>row1</th>
+                    <th>row2</th>
+                    <th>row3</th>
+                    <th>row4</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 엑셀 데이터를 여기에 추가 -->
+            </tbody>
+        </table>
+    </div>
+
+    <script type="text/javascript">
+      $(document).ready(function(){        
+        $("#fileLoad").on("change", function(event){
+            rowAry = []; // 파일이 변경될 때마다 배열을 초기화
+            var input = event.target; // 이벤트 타겟을 input으로 설정
+            var reader = new FileReader(); // 파일을 읽기 위해 FileReader 객체 생성
+            reader.onload = function() {
+                var fileData = reader.result; // 파일의 내용
+                var wb = XLSX.read(fileData, {type : 'binary'}); // 바이너리 형태로 파일을 읽음
+                wb.SheetNames.forEach(function(sheetName) { // 각 시트에 대해 반복
+                    var rowObj = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]); // 시트를 JSON 객체로 변환
+                    rowObj.forEach(function (v, i) { // 각 행에 대해 반복
+                        if (i >= 1) { // 3번째 행부터 포함
+                            var ary = []; // 행 데이터를 저장할 배열
+                            for (key in v)
+                                ary.push(v[key]); // 각 셀의 값을 배열에 추가
+                            rowAry.push(ary); // 행 데이터를 rowAry에 추가
+                        }
+                    });
+                });
+                displayExcelData(rowAry); // 데이터를 화면에 표시
+            };
+            reader.readAsBinaryString(input.files[0]); // 파일을 바이너리 문자열로 읽음
+        });
+
+        $('#btnExcelUpload').on('click', function () {
+            if (!$("#fileLoad").val()) { // 파일이 선택되지 않은 경우
+                alert('엑셀 파일을 첨부해 주세요.');
+                return;
+            }
+
+            // 각 행 데이터 배열이 rowAry 배열의 요소로 들어가 있음
+            // 각 행 empty check
+            var isEmpty = true;
+            rowAry.forEach(function(v) {
+                if (v.length != 4) // 각 행이 4개의 열을 가져야 함
+                    isEmpty = false;
+            });
+            if (!isEmpty) { // 빈 값이 있는 경우
+                alert('빈 값을 확인해주세요. 모든 항목은 필수 항목입니다. 모든 항목을 정상적으로 입력해야 일괄 등록이 가능합니다.');
+                return;
+            }
+
+            // 각 값 유효성 체크
+            var isValid = true;
+            var msg = '';
+            rowAry.forEach(function (v, i) {
+                v.forEach(function (_v, _i) {
+                    switch(_i + 1) {
+                        case 1: // 명
+                        case 2: // 1~9
+                            if (_v <= 0 || _v > 9) { // 값이 1~9 사이인지 체크
+                                isValid = false;
+                                msg += (i + 3) + '행' + ' ' + (_i + 1) + '열, ';
+                            }
+                            break;
+                        case 3: // url
+                        case 4: // 기타
+                            // value check는 자신이 원하는 걸로 하면 됨
+                    }
+                });
+            });
+            if (!isValid) { // 유효하지 않은 값이 있는 경우
+                alert(msg.substr(0, msg.length - 2) + '을 다시 확인해주세요. 모든 항목을 정상적으로 입력해야 일괄 등록이 가능합니다.');
+                location.reload(); // 페이지 새로고침
+                return;
+            }
+
+            if (!confirm('엑셀을 등록하시겠습니까?')) // 엑셀 등록 확인
+                return;
+
+            rowAry.forEach(function (v) { // 각 행 데이터에 대해 반복
+              var row1 = v[0]
+              var row2 = v[1]
+              var row3 = v[2]
+              var row4 = v[3]
+
+              var params = {
+                row1: row1,
+                row2: row2,
+                row3: row3,
+                row4: row4
+              }
+
+                console.log("params => ", params); // 각 행 데이터를 콘솔에 출력
+            });
+        });
+
+        // 엑셀 데이터를 화면에 표시하는 함수
+        function displayExcelData(data) {
+            var tableBody = $('#excelTable tbody');
+            tableBody.empty(); // 기존 테이블 데이터를 초기화
+
+            data.forEach(function(row) {
+                var tableRow = '<tr>';
+                row.forEach(function(cell) {
+                    tableRow += '<td>' + cell + '</td>';
+                });
+                tableRow += '</tr>';
+                tableBody.append(tableRow); // 테이블에 행 추가
+            });
+        }
+      });
+    </script>
+</body>
+</html>
